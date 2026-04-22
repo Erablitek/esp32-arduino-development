@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+
 - Skill self-update mechanism with strict safety rules (silent session-start check,
   explicit update command, refuses pull on local changes, `git pull --ff-only`)
 - `CHANGELOG.md` and `CONTRIBUTING.md`
@@ -22,9 +23,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `build.libraries_path` field — relative path to a local libraries folder, passed as
   `--libraries` to arduino-cli at compile time (cross-OS compatible)
 - `build.output_dir` field — controls where the compiled `.bin` is written via
-  `--output-dir`; use `"."` to output to the project root
+  `--output-dir`; defaults to `"build"` to keep extra build artifacts out of the
+  project root
+- `build.bin_name` field — final binary filename at project root (e.g.
+  `myproject.ino.board_short.bin`), matching the Arduino IDE naming convention
+  for compatibility with server-side symlinks and OTA infrastructure
 
 ### Changed
+
 - Removed all hardcoded arduino-esp32 version numbers from templates and examples
 - `project.json` template now has empty `framework.core_version` (filled at project creation)
 - Compile command omits `PartitionScheme=` from FQBN when `partition_scheme` is
@@ -32,12 +38,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   partition layout, not a built-in scheme
 
 ### Fixed
+
 - Misleading sketch-size percentages when `partitions.csv` was used alongside a
   generic `partition_scheme` value
 
 ## [1.0.0] - 2026-04-22
 
 ### Added
+
 - Initial release
 - Complete ESP32 firmware development workflow using Arduino CLI
 - `project.json` schema (metadata, framework, board, upload, monitor, build sections)

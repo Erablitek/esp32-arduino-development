@@ -30,6 +30,7 @@
     "debug_level": "none",
     "extra_flags": [],
     "libraries_path": "",
-    "output_dir": ""
+    "output_dir": "build",
+    "bin_name": ""
   }
 }

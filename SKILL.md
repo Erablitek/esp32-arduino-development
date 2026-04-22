@@ -81,7 +81,8 @@ fallback for builds from within VS Code.
     "debug_level": "none",
     "extra_flags": [],
     "libraries_path": "",
-    "output_dir": ""
+    "output_dir": "build",
+    "bin_name": ""
   }
 }
 ```
@@ -104,6 +105,8 @@ fallback for builds from within VS Code.
 | `build.debug_level` | `none`, `error`, `warn`, `info`, `debug`, `verbose` | Core debug output |
 | `build.extra_flags` | Array of `-D` defines | e.g. `["-DDEBUG_MODE=1"]` |
 | `build.libraries_path` | Relative or absolute path string | Optional. Path to a folder containing additional libraries (passed as `--libraries` to arduino-cli). Use a path relative to the project root, e.g. `"../libraries"`. Omit or leave empty if all libraries are installed globally via `arduino-cli lib install`. |
+| `build.output_dir` | Relative or absolute path string | Optional. Where arduino-cli writes build artifacts (`--output-dir`). Recommended: `"build"` to keep the project root clean. Leave empty to use the OS temp dir. |
+| `build.bin_name` | Filename string | Optional. When set, the compiled `.bin` is copied from `<output_dir>/<sketch>.ino.bin` to `<project_root>/<bin_name>` after every successful compile. Use the Arduino IDE naming convention: `<sketch>.ino.<board_short_name>.bin`. Required if you have symlinks or update scripts pointing to a fixed filename. |
 
 ---
 
@@ -248,7 +251,30 @@ If `build.extra_flags` is non-empty, append:
   --build-property "compiler.cpp.extra_flags=-DDEBUG_MODE=1 -DFEATURE_X"
 ```
 
-### Step 4: Report results
+### Step 4: Post-compile binary export
+
+If `build.bin_name` is non-empty, copy the compiled binary to the project root
+after a successful compile:
+
+```
+source:      <output_dir>/<sketch>.ino.bin
+destination: <project_root>/<bin_name>
+```
+
+Example — `bin_name` is `"0603.ino.feather_esp32.bin"`, `output_dir` is `"build"`:
+```bash
+cp build/0603.ino.bin 0603.ino.feather_esp32.bin   # Linux / macOS
+Copy-Item build\0603.ino.bin 0603.ino.feather_esp32.bin -Force  # Windows PowerShell
+```
+
+This keeps the project root clean (build artifacts stay in `build/`) while
+maintaining a fixed filename that symlinks or update scripts can always reference.
+
+In VS Code `tasks.json`, implement this as a separate `_esp32_export_bin` task
+and chain it via `"dependsOn"` + `"dependsOrder": "sequence"` on the main compile
+task (see `templates/.vscode/tasks.json`).
+
+### Step 5: Report results
 
 Always show:
 - Sketch size and percentage of available program storage

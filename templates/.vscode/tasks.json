@@ -1,38 +1,40 @@
 {
   "version": "2.0.0",
   "tasks": [
+
     {
       "label": "ESP32: Compile",
-      "type": "shell",
-      "command": "arduino-cli",
-      "args": [
-        "compile",
-        "--fqbn",
-        "esp32:esp32:esp32",
-        "${workspaceFolder}"
-      ],
-      "problemMatcher": ["$gcc"],
+      "dependsOn": ["_esp32_compile", "_esp32_export_bin"],
+      "dependsOrder": "sequence",
       "group": {
         "kind": "build",
         "isDefault": true
       },
       "presentation": {
         "reveal": "always",
-        "panel": "shared",
-        "clear": true
+        "panel": "shared"
       }
     },
+
     {
       "label": "ESP32: Compile + Upload",
+      "dependsOn": ["_esp32_compile", "_esp32_export_bin", "_esp32_upload"],
+      "dependsOrder": "sequence",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+
+    {
+      "label": "_esp32_compile",
       "type": "shell",
       "command": "arduino-cli",
       "args": [
         "compile",
-        "--upload",
-        "--fqbn",
-        "esp32:esp32:esp32",
-        "-p",
-        "${input:serialPort}",
+        "--output-dir", "${workspaceFolder}/build",
+        "--fqbn", "FQBN_PLACEHOLDER",
+        "--libraries", "${workspaceFolder}/../libraries",
         "${workspaceFolder}"
       ],
       "problemMatcher": ["$gcc"],
@@ -42,16 +44,53 @@
         "clear": true
       }
     },
+
+    {
+      "label": "_esp32_export_bin",
+      "type": "shell",
+      "command": "cp",
+      "args": [
+        "${workspaceFolder}/build/SKETCH_NAME.ino.bin",
+        "${workspaceFolder}/BIN_NAME_PLACEHOLDER"
+      ],
+      "windows": {
+        "command": "powershell",
+        "args": [
+          "-Command",
+          "Copy-Item '${workspaceFolder}/build/SKETCH_NAME.ino.bin' '${workspaceFolder}/BIN_NAME_PLACEHOLDER' -Force"
+        ]
+      },
+      "presentation": {
+        "reveal": "silent",
+        "panel": "shared"
+      }
+    },
+
+    {
+      "label": "_esp32_upload",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": [
+        "upload",
+        "--fqbn", "FQBN_PLACEHOLDER",
+        "--input-dir", "${workspaceFolder}/build",
+        "-p", "${input:serialPort}",
+        "--verify"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    },
+
     {
       "label": "ESP32: Monitor Serial",
       "type": "shell",
       "command": "arduino-cli",
       "args": [
         "monitor",
-        "-p",
-        "${input:serialPort}",
-        "--config",
-        "baudrate=115200"
+        "-p", "${input:serialPort}",
+        "--config", "baudrate=115200"
       ],
       "presentation": {
         "reveal": "always",
@@ -59,6 +98,7 @@
         "clear": true
       }
     },
+
     {
       "label": "ESP32: List Boards",
       "type": "shell",
@@ -69,6 +109,7 @@
         "panel": "shared"
       }
     }
+
   ],
   "inputs": [
     {
