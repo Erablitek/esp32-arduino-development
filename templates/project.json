@@ -1,0 +1,33 @@
+{
+  "metadata": {
+    "name": "my-esp32-project",
+    "description": "Brief description of what this firmware does",
+    "author": "",
+    "client": "",
+    "firmware_version": "see main .ino file"
+  },
+  "framework": {
+    "core": "esp32:esp32",
+    "core_version": ""
+  },
+  "board": {
+    "fqbn": "esp32:esp32:esp32",
+    "cpu_freq_mhz": 240,
+    "flash_size": "4MB",
+    "flash_mode": "dio",
+    "flash_freq": "80",
+    "partition_scheme": "default"
+  },
+  "upload": {
+    "port": "auto",
+    "upload_speed": 921600,
+    "verify": true
+  },
+  "monitor": {
+    "baudrate": 115200
+  },
+  "build": {
+    "debug_level": "none",
+    "extra_flags": []
+  }
+}

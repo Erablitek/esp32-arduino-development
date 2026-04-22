@@ -1,0 +1,24 @@
+# Arduino CLI build output
+build/
+*.bin
+*.elf
+*.hex
+*.map
+
+# Arduino CLI cache
+.arduino-cli/
+
+# VS Code user settings (keep shared tasks.json in git)
+.vscode/settings.json
+.vscode/c_cpp_properties.json
+.vscode/launch.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor backups
+*~
+*.swp
+*.bak

@@ -1,0 +1,81 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "ESP32: Compile",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": [
+        "compile",
+        "--fqbn",
+        "esp32:esp32:esp32",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": ["$gcc"],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "ESP32: Compile + Upload",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": [
+        "compile",
+        "--upload",
+        "--fqbn",
+        "esp32:esp32:esp32",
+        "-p",
+        "${input:serialPort}",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": ["$gcc"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared",
+        "clear": true
+      }
+    },
+    {
+      "label": "ESP32: Monitor Serial",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": [
+        "monitor",
+        "-p",
+        "${input:serialPort}",
+        "--config",
+        "baudrate=115200"
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      }
+    },
+    {
+      "label": "ESP32: List Boards",
+      "type": "shell",
+      "command": "arduino-cli",
+      "args": ["board", "list"],
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      }
+    }
+  ],
+  "inputs": [
+    {
+      "id": "serialPort",
+      "type": "promptString",
+      "description": "Serial port (e.g., COM5 on Windows, /dev/ttyUSB0 on Linux, /dev/cu.SLAB_USBtoUART on macOS)",
+      "default": "COM5"
+    }
+  ]
+}
