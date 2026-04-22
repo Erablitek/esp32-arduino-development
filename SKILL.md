@@ -13,7 +13,7 @@ description: |
   replaces the Arduino IDE entirely and drives arduino-cli directly, reading project
   settings from a project.json file in each project.
 author: esp32-arduino-development contributors
-version: 1.2.0
+version: 1.3.0
 date: 2026-04-22
 ---
 
@@ -95,7 +95,7 @@ fallback for builds from within VS Code.
 | `board.flash_size` | 2MB, 4MB, 8MB, 16MB | Must match hardware |
 | `board.flash_mode` | `qio`, `qout`, `dio`, `dout` | `dio` is safest default |
 | `board.flash_freq` | `40`, `80` | MHz |
-| `board.partition_scheme` | See `references/partition-schemes.md` | **Ignored if `partitions.csv` is present in project root** |
+| `board.partition_scheme` | See `references/partition-schemes.md`; use `"custom"` when `partitions.csv` is present | When `"custom"`, `PartitionScheme=` is omitted from the FQBN entirely and `--build-property build.partitions=partitions` is used instead — ensuring correct sketch-size reporting. Set to `"custom"` with user confirmation when `partitions.csv` is found and value ≠ `"custom"`. |
 | `upload.port` | `"auto"`, `"COM5"`, `"/dev/ttyUSB0"` | `auto` = Claude detects |
 | `upload.upload_speed` | 115200, 230400, 460800, 921600 | Drop to 115200 if uploads are unreliable |
 | `monitor.baudrate` | Usually 115200 | Must match `Serial.begin()` in code |
@@ -181,8 +181,16 @@ project/
 ```
 
 **If `partitions.csv` IS present:**
-- Use it automatically via build property override
-- Inform the user: "Using custom partitions.csv (overrides project.json partition_scheme)"
+- Check `board.partition_scheme` in `project.json`:
+  - If it is already `"custom"`: proceed silently (user already acknowledged this once)
+  - If it is anything else (including empty, `"default"`, etc.): **stop and ask the user**:
+    > "I detected `partitions.csv` in this project but `project.json` says
+    > `partition_scheme = '<current_value>'`. To ensure correct sketch-size
+    > reporting, I should update it to `"custom"`. Proceed with the update? (y/n)"
+  - If the user confirms: update `project.json` → `"partition_scheme": "custom"`, then continue
+  - If the user declines: continue with the current value but warn that sketch-size
+    percentages may be reported against the wrong partition size
+- Build the compile command using the custom partition override (see Step 3)
 
 **If `partitions.csv` is NOT present:**
 - Read `board.partition_scheme` from `project.json`
@@ -199,7 +207,12 @@ arduino-cli compile \
   "<project_directory>"
 ```
 
-**With custom partitions.csv:**
+**With custom partitions.csv** (i.e. `partition_scheme` is `"custom"`)**:**
+
+`PartitionScheme=` is intentionally omitted from the FQBN. Including it (even as
+`PartitionScheme=default`) would cause arduino-cli to report sketch-size percentages
+against the built-in scheme's app-partition size rather than the actual layout defined
+in `partitions.csv`, producing misleading output.
 
 ```bash
 arduino-cli compile \

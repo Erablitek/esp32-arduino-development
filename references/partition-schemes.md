@@ -49,6 +49,40 @@ Or browse the source:
 - Linux/macOS: `~/.arduino15/packages/esp32/hardware/esp32/<version>/tools/partitions/`
 - Windows: `%LOCALAPPDATA%\Arduino15\packages\esp32\hardware\esp32\<version>\tools\partitions\`
 
+## Special value: `"custom"`
+
+Set `board.partition_scheme` to `"custom"` in `project.json` when a `partitions.csv`
+file is present in the project root.
+
+```json
+"board": {
+  "partition_scheme": "custom"
+}
+```
+
+**What it does:**
+- Tells the skill that `partitions.csv` is the sole authority for partition layout
+- The FQBN will **not** include `PartitionScheme=` at all
+- The compile command will instead use:
+  ```
+  --build-property "build.custom_partitions=partitions"
+  --build-property "build.partitions=partitions"
+  ```
+
+**Why omitting `PartitionScheme=` matters:**
+If `PartitionScheme=default` (or any other scheme) is present in the FQBN alongside
+a custom `partitions.csv`, arduino-cli reports sketch-size percentages based on the
+built-in scheme's app-partition size — not the actual size in your `partitions.csv`.
+This produces misleading output like "83% of program storage space" when the real
+percentage against your actual partition is different.
+
+**Auto-detection:**
+When the skill detects `partitions.csv` in the project root and `partition_scheme`
+is not already `"custom"`, it will ask for confirmation before updating `project.json`.
+Once set to `"custom"`, the question is never asked again for that project.
+
+---
+
 ## When to use a custom partitions.csv instead
 
 Use a custom `partitions.csv` in the project root when:

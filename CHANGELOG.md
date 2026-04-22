@@ -8,6 +8,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-04-22
+
+### Added
+- `"custom"` as a valid value for `board.partition_scheme` in `project.json`, explicitly
+  declaring that `partitions.csv` is the authority for partition layout
+- Auto-detection: when `partitions.csv` is present and `partition_scheme` ≠ `"custom"`,
+  the skill prompts the user for confirmation before updating `project.json` — once
+  confirmed, the question is never asked again for that project
+
+### Fixed
+- Misleading sketch-size percentages when `partitions.csv` was present alongside a
+  generic `partition_scheme` value (e.g. `"default"`): arduino-cli was reporting usage
+  against the built-in scheme's app-partition size rather than the actual layout in
+  `partitions.csv`
+
+### Changed
+- Compile command no longer includes `PartitionScheme=` in the FQBN when
+  `partition_scheme` is `"custom"` — omitting it is required for arduino-cli to compute
+  sketch-size percentages against the correct partition layout
+
 ## [1.2.0] - 2026-04-22
 
 ### Added
@@ -55,7 +75,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standard `.gitignore` for ESP32 Arduino projects
 - MIT License
 
-[Unreleased]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.3.0...HEAD
+[1.3.0]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/Erablitek/esp32-arduino-development/releases/tag/v1.0.0
