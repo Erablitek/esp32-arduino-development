@@ -209,6 +209,7 @@ project/
 
 ```bash
 arduino-cli compile \
+  --output-dir "<output_dir>" \
   --fqbn "esp32:esp32:esp32:PartitionScheme=default,CPUFreq=240,FlashSize=4MB,FlashMode=dio,FlashFreq=80,DebugLevel=none" \
   "<project_directory>"
 ```
@@ -222,6 +223,7 @@ in `partitions.csv`, producing misleading output.
 
 ```bash
 arduino-cli compile \
+  --output-dir "<output_dir>" \
   --fqbn "esp32:esp32:esp32:CPUFreq=240,FlashSize=4MB,FlashMode=dio,FlashFreq=80,DebugLevel=none" \
   --build-property "build.custom_partitions=partitions" \
   --build-property "build.partitions=partitions" \
@@ -235,6 +237,7 @@ the compile command. The path is resolved relative to the project root:
 
 ```bash
 arduino-cli compile \
+  --output-dir "<output_dir>" \
   --fqbn "<fqbn>" \
   --libraries "<project_directory>/../libraries" \
   "<project_directory>"
