@@ -12,6 +12,9 @@ When installed, Claude can:
 - **Create** new projects interactively
 - **Check** for arduino-esp32 core updates on demand
 - **Diagnose** compile and upload errors automatically
+- **Install arduino-cli** automatically if missing (OS-native method, with confirmation)
+- **Export** the compiled `.bin` to the project root with the Arduino IDE naming
+  convention after every successful build
 
 All driven through `arduino-cli` directly — no custom build scripts required.
 
@@ -35,8 +38,8 @@ are managed globally via `arduino-cli lib install`, not declared per project.
 ## Installation
 
 1. Copy the `esp32-arduino-development/` directory into your Claude skills folder
-2. Ensure `arduino-cli` is installed (see `references/installation.md`)
-3. Start a conversation mentioning ESP32 — Claude will detect the skill
+2. Start a conversation mentioning ESP32 — Claude will detect the skill and install
+   `arduino-cli` automatically if it is not already present
 
 ## Usage examples
 
