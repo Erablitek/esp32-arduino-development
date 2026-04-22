@@ -13,7 +13,7 @@ description: |
   replaces the Arduino IDE entirely and drives arduino-cli directly, reading project
   settings from a project.json file in each project.
 author: esp32-arduino-development contributors
-version: 1.1.0
+version: 1.2.0
 date: 2026-04-22
 ---
 
@@ -41,6 +41,7 @@ fallback for builds from within VS Code.
 | **Monitor** | "monitor", "serial", "moniteur" | Opens serial monitor at project baudrate |
 | **Create project** | "new project", "create project.json" | Interactive project setup |
 | **Check updates** | "check updates", "check framework updates" | Scans for arduino-esp32 core updates |
+| **Update skill** | "update the skill", "pull skill updates" | Updates this skill itself from its Git remote |
 | **Diagnose** | Automatic on error | Parses errors, proposes fixes |
 
 ---
@@ -399,8 +400,154 @@ If `arduino-cli` is not installed at all, guide the user through installation
 
 ---
 
+## Skill self-update — CRITICAL BEHAVIOR
+
+This skill is maintained in a Git repository. It can check for and apply its
+own updates, but ONLY under strict safety rules.
+
+### Session-start silent check (hybrid mode)
+
+At the beginning of a new ESP32-related conversation, run this check ONCE per
+session. Do it silently — the user should not see tool output unless something
+needs their attention.
+
+**Locate the skill directory:** Typically one of:
+- Linux / macOS: `~/.claude/skills/esp32-arduino-development/`
+- Windows: `%USERPROFILE%\.claude\skills\esp32-arduino-development\`
+
+If the directory is not a Git repository (no `.git/` inside), skip the check
+entirely — the skill was installed via a method other than `git clone`.
+
+**Check sequence:**
+
+```bash
+cd <skill_dir>
+git fetch --quiet                         # refresh remote refs, no merge
+LOCAL=$(git rev-parse @)
+REMOTE=$(git rev-parse @{u} 2>/dev/null)
+BASE=$(git merge-base @ @{u} 2>/dev/null)
+```
+
+Interpretation:
+- `LOCAL == REMOTE` → up to date, say nothing, continue
+- `LOCAL == BASE` (local is behind remote) → updates are available, notify user
+- `REMOTE == BASE` (local is ahead of remote) → user has unpushed commits, say nothing
+- Neither matches → diverged history, say nothing (user handles it manually)
+
+**If updates are available**, add a short, ONE-LINE note at the start of the
+first response:
+
+> _Note: X new commit(s) available for the esp32-arduino-development skill. Say "update the skill" to apply them._
+
+Then answer the user's actual request as normal. Never delay the response to
+perform the update check — if `git fetch` hangs or fails (no network, etc.),
+silently skip and move on.
+
+### Explicit update command
+
+When the user says "update the skill", "pull skill updates", "update the esp32 skill",
+or similar, run the update procedure.
+
+**Step 1 — Safety check: uncommitted local changes**
+
+```bash
+cd <skill_dir>
+git status --porcelain
+```
+
+If this returns ANY output (even a single modified file), STOP. Do not pull.
+Report exactly:
+
+> Il y a des modifications locales non-commitées dans le skill. Je ne peux pas faire git pull sans risquer de les écraser.
+>
+> Options:
+> 1. Commit tes changements: `git add . && git commit -m "votre message"`
+> 2. Ou stash-les temporairement: `git stash`
+> 3. Ou si les changements ne sont pas importants: `git checkout .` (⚠️ perte définitive)
+>
+> Dis-moi laquelle quand tu es prêt et je retenterai l'update.
+
+(Respond in English if the conversation is in English, adjust accordingly.)
+
+**Step 2 — Check for divergence**
+
+```bash
+git fetch --quiet
+LOCAL=$(git rev-parse @)
+REMOTE=$(git rev-parse @{u})
+BASE=$(git merge-base @ @{u})
+```
+
+If `REMOTE == BASE` (user's branch is ahead of remote), say:
+> Ton skill local est en avance sur le remote — rien à pull. Tu as peut-être des commits à push.
+
+If `LOCAL == REMOTE`, say:
+> Le skill est déjà à jour.
+
+If diverged (neither matches), STOP and warn the user — they need to resolve
+the divergence manually.
+
+**Step 3 — Pull**
+
+Only if safe (working tree clean AND local is strictly behind remote):
+
+```bash
+git pull --ff-only
+```
+
+Using `--ff-only` prevents merge commits — if a fast-forward is not possible,
+the pull fails cleanly and the user is told to resolve manually.
+
+**Step 4 — Report**
+
+Show the user a short summary of what changed:
+
+```bash
+git log --oneline <OLD_LOCAL>..HEAD
+```
+
+Then remind them: "Redémarre Claude Code pour charger la nouvelle version du skill."
+(Claude Code needs a session restart to re-read SKILL.md content.)
+
+### NEVER do the following
+
+- Never run `git pull` silently without user confirmation
+- Never run `git reset`, `git checkout .`, or any destructive command automatically
+- Never modify files in the skill directory outside of the formal update procedure
+- Never push from within the skill directory based on automatic behavior
+
+---
+
+## Versioning and changelog
+
+This skill follows [Semantic Versioning](https://semver.org/). The current
+version is in the frontmatter at the top of this file (`version:` field).
+
+**Files to keep in sync when modifying the skill:**
+- `SKILL.md` frontmatter `version:` and `date:` fields
+- `CHANGELOG.md` at the repo root
+- Git tag matching the version (at release time)
+
+See `CONTRIBUTING.md` for detailed versioning rules, changelog discipline, and
+the release process.
+
+When asked to make changes to this skill:
+1. Apply the requested changes
+2. Determine the version bump level (patch / minor / major) per SemVer rules
+3. Update `version:` in the frontmatter
+4. Add an entry under `## [Unreleased]` in `CHANGELOG.md` with the correct category (Added / Changed / Fixed / etc.)
+5. Do NOT create a release tag unless the user explicitly asks ("release this as vX.Y.Z")
+
+When the user asks "what version is the skill" or "what changed recently",
+read `CHANGELOG.md` and summarize the most recent entries.
+
+---
+
 ## File references
 
+- `CHANGELOG.md` — version history in Keep a Changelog format
+- `CONTRIBUTING.md` — versioning rules (SemVer) and release process
+- `LICENSE` — MIT license
 - `templates/project.json` — blank template with all fields
 - `templates/partitions.csv.example` — example of a custom 4MB partition with OTA slots
 - `templates/.vscode/tasks.json` — VS Code tasks that call arduino-cli directly (fallback)

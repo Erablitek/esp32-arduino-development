@@ -79,6 +79,9 @@ derivatives. See `references/fqbn-reference.md` for the full list.
 | File | Purpose |
 |---|---|
 | `SKILL.md` | Main skill definition — Claude reads this |
+| `CHANGELOG.md` | Version history (Keep a Changelog format) |
+| `CONTRIBUTING.md` | Versioning rules (SemVer) and release process |
+| `LICENSE` | MIT license |
 | `templates/project.json` | Blank config template for new projects |
 | `templates/partitions.csv.example` | Example custom partition table |
 | `templates/.vscode/tasks.json` | Standalone VS Code build tasks |
