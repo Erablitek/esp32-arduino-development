@@ -451,13 +451,60 @@ install command but NEVER auto-run it without user confirmation.
 
 ## Prerequisite check (run once per session silently)
 
+### Step 1 — Check if arduino-cli is installed
+
 ```bash
-arduino-cli version        # must be >= 1.0
+arduino-cli version
+```
+
+If found and version >= 1.0: proceed silently.
+
+If **not found**: do NOT fail silently — offer to install it (see Step 2).
+
+### Step 2 — Install arduino-cli (with user confirmation)
+
+Detect the OS, present the install plan, and wait for explicit confirmation
+before running anything.
+
+**Linux / macOS:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
+```
+
+`/usr/local/bin` is already in PATH on most systems. If not, inform the user
+and provide the exact `export PATH` line to add to their shell profile.
+
+**Windows (PowerShell — no sh required):**
+
+```powershell
+$dest = "$env:LOCALAPPDATA\Programs\arduino-cli"
+New-Item -ItemType Directory -Force -Path $dest | Out-Null
+Invoke-WebRequest -Uri "https://downloads.arduino.cc/arduino-cli/arduino-cli_latest_Windows_64bit.zip" -OutFile "$env:TEMP\arduino-cli.zip"
+Expand-Archive -Path "$env:TEMP\arduino-cli.zip" -DestinationPath $dest -Force
+[Environment]::SetEnvironmentVariable("Path", [Environment]::GetEnvironmentVariable("Path","User") + ";$dest", "User")
+```
+
+After install, inform the user they must **restart their terminal** (or VS Code)
+for the PATH change to take effect.
+
+### Step 3 — Verify
+
+```bash
+arduino-cli version
+```
+
+If this still fails after install, report the exact output and help the user
+diagnose (PATH not refreshed, download failed, architecture mismatch, etc.).
+
+### Step 4 — Core check
+
+```bash
 arduino-cli core list      # must include esp32:esp32
 ```
 
-If `arduino-cli` is not installed at all, guide the user through installation
-(see `references/installation.md`).
+If the esp32 core is missing, offer to install it (requires separate
+confirmation — see Framework version enforcement section).
 
 ---
 

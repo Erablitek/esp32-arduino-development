@@ -28,6 +28,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `build.bin_name` field — final binary filename at project root (e.g.
   `myproject.ino.board_short.bin`), matching the Arduino IDE naming convention
   for compatibility with server-side symlinks and OTA infrastructure
+- Auto-install arduino-cli when missing: detects OS, presents install plan,
+  waits for confirmation, installs via official script (Linux/macOS into
+  `/usr/local/bin`) or PowerShell download (Windows into
+  `%LOCALAPPDATA%\Programs\arduino-cli` + user PATH update)
 
 ### Changed
 
