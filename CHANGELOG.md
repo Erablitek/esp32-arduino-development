@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-04-22
+
+### Added
+- `build.libraries_path` field in `project.json` — optional path to a local libraries
+  folder, passed as `--libraries` to arduino-cli at compile time
+- Use a relative path (e.g. `"../libraries"`) so the project works across operating
+  systems; the skill resolves it to absolute at compile time
+- `templates/project.json` updated with the new field (empty string = not used)
+
 ## [1.3.0] - 2026-04-22
 
 ### Added
@@ -75,7 +84,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Standard `.gitignore` for ESP32 Arduino projects
 - MIT License
 
-[Unreleased]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.3.0...HEAD
+[Unreleased]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.3.0...v1.4.0
 [1.3.0]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.2.0...v1.3.0
 [1.2.0]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.1.0...v1.2.0
 [1.1.0]: https://github.com/Erablitek/esp32-arduino-development/compare/v1.0.0...v1.1.0

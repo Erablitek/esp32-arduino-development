@@ -13,7 +13,7 @@ description: |
   replaces the Arduino IDE entirely and drives arduino-cli directly, reading project
   settings from a project.json file in each project.
 author: esp32-arduino-development contributors
-version: 1.3.0
+version: 1.4.0
 date: 2026-04-22
 ---
 
@@ -79,7 +79,8 @@ fallback for builds from within VS Code.
   },
   "build": {
     "debug_level": "none",
-    "extra_flags": []
+    "extra_flags": [],
+    "libraries_path": ""
   }
 }
 ```
@@ -101,6 +102,7 @@ fallback for builds from within VS Code.
 | `monitor.baudrate` | Usually 115200 | Must match `Serial.begin()` in code |
 | `build.debug_level` | `none`, `error`, `warn`, `info`, `debug`, `verbose` | Core debug output |
 | `build.extra_flags` | Array of `-D` defines | e.g. `["-DDEBUG_MODE=1"]` |
+| `build.libraries_path` | Relative or absolute path string | Optional. Path to a folder containing additional libraries (passed as `--libraries` to arduino-cli). Use a path relative to the project root, e.g. `"../libraries"`. Omit or leave empty if all libraries are installed globally via `arduino-cli lib install`. |
 
 ---
 
@@ -221,6 +223,22 @@ arduino-cli compile \
   --build-property "build.partitions=partitions" \
   "<project_directory>"
 ```
+
+**With a local libraries folder** (`build.libraries_path` is set)**:**
+
+If `build.libraries_path` is non-empty, append `--libraries "<resolved_path>"` to
+the compile command. The path is resolved relative to the project root:
+
+```bash
+arduino-cli compile \
+  --fqbn "<fqbn>" \
+  --libraries "<project_directory>/../libraries" \
+  "<project_directory>"
+```
+
+Use a relative path in `project.json` (e.g. `"../libraries"`) so the project works
+across operating systems. Resolve it to an absolute path at compile time by joining
+with the project directory.
 
 **With extra build flags:**
 

@@ -28,6 +28,7 @@
   },
   "build": {
     "debug_level": "none",
-    "extra_flags": []
+    "extra_flags": [],
+    "libraries_path": ""
   }
 }
