@@ -13,7 +13,7 @@ description: |
   replaces the Arduino IDE entirely and drives arduino-cli directly, reading project
   settings from a project.json file in each project.
 author: esp32-arduino-development contributors
-version: 1.4.0
+version: 1.0.0
 date: 2026-04-22
 ---
 
@@ -80,7 +80,8 @@ fallback for builds from within VS Code.
   "build": {
     "debug_level": "none",
     "extra_flags": [],
-    "libraries_path": ""
+    "libraries_path": "",
+    "output_dir": ""
   }
 }
 ```

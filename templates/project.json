@@ -29,6 +29,7 @@
   "build": {
     "debug_level": "none",
     "extra_flags": [],
-    "libraries_path": ""
+    "libraries_path": "",
+    "output_dir": ""
   }
 }
