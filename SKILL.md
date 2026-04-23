@@ -170,6 +170,70 @@ The pinned version is a contract — silently changing it would defeat the purpo
 
 ---
 
+## Reading project.json — MANDATORY BEHAVIOR
+
+**Before every compile, flash, or any action that uses board options,
+Claude MUST read `project.json` and copy its values LITERALLY into commands.**
+
+The whole point of `project.json` is to be the single source of truth for the
+project. The exact string the user wrote is the exact string that must end up
+on the `arduino-cli` command line. Substituting a value — even a "more standard
+looking" one — defeats the purpose of pinning and has caused real compile
+failures.
+
+### Non-negotiable rules
+
+1. **Never substitute values from memory or from examples in this skill.**
+   If `project.json` says `"flash_size": "4M"`, pass `FlashSize=4M`, never
+   `FlashSize=4MB`. If it says `"flash_freq": "80"`, pass `FlashFreq=80`,
+   never `FlashFreq=80MHz`. The values in this skill's examples (like
+   `FlashSize=4MB`) are illustrative placeholders — the authority is always
+   the project's own `project.json`.
+
+2. **Never guess option keys either.** Only pass FQBN options that are present
+   in `project.json` (via `fqbn_extra_options` or the structured fields).
+   Never add options like `FlashMode=dio` unless they are explicitly written
+   in the file.
+
+3. **Validate against the board's actual menu** when uncertain. If the user
+   reports an `invalid option 'X'` error, run:
+   ```bash
+   arduino-cli board details -b <fqbn>
+   ```
+   to see what options the board actually exposes. Then present the mismatch
+   to the user: "project.json declares `X=Y` but board `<fqbn>` doesn't
+   expose `X`. Remove it from project.json, or omit from the FQBN this
+   time?" — let the user decide. Never silently drop or rename options.
+
+4. **If a mandatory field is missing** from `project.json`, ASK the user —
+   don't fill in a plausible default silently.
+
+### Pre-compile read checklist
+
+Before constructing the FQBN, the skill MUST have loaded and used:
+
+| Field | Usage |
+|---|---|
+| `framework.core_version` | Enforce installed core matches (see Framework version enforcement) |
+| `board.fqbn` | Base FQBN prefix |
+| `board.fqbn_extra_options` | Appended verbatim to FQBN (if present) |
+| `board.cpu_freq_mhz` | → `CPUFreq=<value>` |
+| `board.flash_size` | → `FlashSize=<value>` **literally** (e.g. `4M`, not `4MB`) |
+| `board.flash_mode` | → `FlashMode=<value>` **only if the board exposes this option** |
+| `board.flash_freq` | → `FlashFreq=<value>` **literally** |
+| `board.partition_scheme` | → `PartitionScheme=<value>`, OR omit entirely when `"custom"` |
+| `build.debug_level` | → `DebugLevel=<value>` |
+| `build.libraries_path` | → `--libraries <resolved_path>` |
+| `build.output_dir` | → `--output-dir <path>` |
+| `build.extra_flags` | → `--build-property "compiler.cpp.extra_flags=..."` |
+| `upload.port`, `upload.upload_speed`, `upload.verify` | For flash action |
+| `monitor.baudrate` | For monitor action |
+
+If the skill constructs a command without having read `project.json` in the
+current session, that is a bug — stop and read the file first.
+
+---
+
 ## Compilation logic
 
 ### Step 1: Framework version check
@@ -204,6 +268,13 @@ project/
   answer back into `project.json` so the question is asked only once per project
 
 ### Step 3: Build the compile command
+
+> ⚠️ **The FQBN examples below contain placeholder values** (`FlashSize=4MB`,
+> `FlashMode=dio`, etc.). These are illustrative only. **The actual command must
+> use the values from `project.json` verbatim** — see the "Reading project.json
+> — MANDATORY BEHAVIOR" section above. Not every option shown below applies to
+> every board: omit any option that is not present in `project.json` or not
+> exposed by the board's menu.
 
 **Standard compile (no custom partitions.csv):**
 
@@ -419,6 +490,7 @@ later if the default scheme is insufficient.
 
 | Error substring | Likely cause | Action |
 |---|---|---|
+| `Invalid FQBN: ... invalid option 'X'` | `project.json` declares an option the board doesn't expose | Run `arduino-cli board details -b <fqbn>` to list real options. Then ASK the user: remove `X` from project.json, or omit from FQBN for this build only? Never silently drop. |
 | `Failed to connect to ESP32` | Device not in download mode | Instruct BOOT+EN sequence, retry after user confirms |
 | `Invalid head of packet` | Port busy or baudrate mismatch | Close monitors, lower upload_speed |
 | `No board selected` | Core missing or wrong FQBN | Verify `arduino-cli core list`, check FQBN |

@@ -10,6 +10,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **"Reading project.json — MANDATORY BEHAVIOR" section** that forbids substituting
+  values (e.g. `4M` → `4MB`, `80` → `80MHz`) or guessing option keys. Before every
+  compile, Claude must load `project.json` and copy values verbatim into the FQBN
+- Pre-compile read checklist mapping each `project.json` field to its command-line
+  effect, so nothing gets forgotten or invented
+- Placeholder warning banner at the top of Step 3 — makes it explicit that the
+  example FQBNs are illustrative and must not be used as-is
+- Troubleshooting entry for `Invalid FQBN: invalid option 'X'` — the fix path is
+  to run `arduino-cli board details -b <fqbn>`, present the mismatch to the user,
+  and let them decide whether to edit `project.json` or omit the option for this
+  build; never silently drop
 - Skill self-update mechanism with strict safety rules (silent session-start check,
   explicit update command, refuses pull on local changes, `git pull --ff-only`)
 - `CHANGELOG.md` and `CONTRIBUTING.md`
