@@ -36,7 +36,7 @@ All ESP32 boards use the `esp32:esp32:` prefix from the arduino-esp32 core.
 | Heltec WiFi Kit 32             | `esp32:esp32:heltec_wifi_kit_32`  |
 | M5Stack Core                   | `esp32:esp32:m5stack_core_esp32`  |
 | M5Stack ATOM                   | `esp32:esp32:m5stack_atom`        |
-| Adafruit Feather ESP32         | `esp32:esp32:featheresp32`        |
+| Adafruit Feather ESP32 | `esp32:esp32:featheresp32` | 4MB flash, CP2104 USB |
 | Adafruit Feather ESP32-S3      | `esp32:esp32:adafruit_feather_esp32s3` |
 | SparkFun ESP32 Thing           | `esp32:esp32:esp32thing`          |
 

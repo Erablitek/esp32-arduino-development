@@ -13,8 +13,8 @@ description: |
   replaces the Arduino IDE entirely and drives arduino-cli directly, reading project
   settings from a project.json file in each project.
 author: esp32-arduino-development contributors
-version: 1.0.0
-date: 2026-04-22
+version: 1.2.4
+date: 2026-06-02
 ---
 
 # ESP32 Arduino Development (Arduino CLI Workflow)
@@ -236,8 +236,34 @@ current session, that is a bug — stop and read the file first.
 
 ## Compilation logic
 
+### Step 0: Validate multi-file sketch prototypes
+
+If the project uses **multiple `.ino` files** (001_*.ino, 002_*.ino, etc.), the main `.ino` file (same name as the directory) MUST declare explicit prototypes for `void setup();` and `void loop();` at file scope. Without them, arduino-cli's preprocessor auto-generates prototypes and corrupts the first `#line` directive into `##line`, causing a `stray '##' in program` compile error (arduino-cli 1.5.0 + esp32:esp32 core 3.3.8).
+
+**Check:** Before compiling any multi-file sketch, verify the main `.ino` contains both `void setup();` and `void loop();` as prototype declarations. If missing, add them — do NOT rely on the preprocessor to fill them in. This bug applies to ALL multi-file sketches, not just ESP32.
+
+**Example fix:**
+```cpp
+// At the end of the main .ino prototypes section:
+void setup();
+void loop();
+```
+
+**Alternative: prefer proper `.h`/`.cpp` structure** instead of split `.ino` files. Create a single `.ino` for `setup()`/`loop()` plus separate `.h`/`.cpp` modules:
+```
+project/
+├── project.ino       # setup() + loop() only
+├── config.h          # Pins, defines
+├── module.h/.cpp     # One pair per module
+└── project.json
+```
+This avoids the preprocessor bug entirely (no auto-prototype generation) and is cleaner for projects beyond trivial size. Note: the `.ino` file MUST still include `setup()` and `loop()` definitions — the preprocessor only looks for them in `.ino` files, not `.cpp`.
+
 ### Step 1: Framework version check
-See section above. Must pass before proceeding.
+
+Before every compile, verify the installed core version matches `framework.core_version` from `project.json` (see Framework version enforcement section above). 
+
+**PITFALL — `replace_all` on patch:** The string `"Before every compile, Claude MUST verify the installed core version matches"` appears in multiple sections of this document. Never use `replace_all=true` with this pattern — it will duplicate content across unrelated sections.
 
 ### Step 2: Check for custom partition file
 
@@ -327,22 +353,57 @@ If `build.extra_flags` is non-empty, append:
 
 ### Step 4: Post-compile binary export
 
-If `build.bin_name` is non-empty, copy the compiled binary to the project root
-after a successful compile:
+**IMPORTANT — stale `__DATE__`/`__TIME__`:** `arduino-cli` caches compiled `.o`
+files globally under `~/.cache/arduino/sketches/`. If a source file containing
+`__DATE__` or `__TIME__` (e.g. `globals.cpp` with `compileDate`) hasn't changed,
+the cached `.o` is reused — producing a binary with an old compile date even after
+a clean `rm -rf build`. **Always run both clean steps before a recompile where
+the date matters:**
+
+```bash
+rm -rf ~/.cache/arduino/sketches/*    # global cache
+rm -rf <project>/build                 # local output dir
+arduino-cli compile ...
+```
+
+Verify the date landed in the binary with:
+```bash
+strings <project>/<bin_name> | grep "$(date +%b) $(date +%d) $(date +%Y)"
+```
+
+If `build.bin_name` is non-empty, copy the compiled **application firmware** binary to the project root after a successful compile:
 
 ```
-source:      <output_dir>/<sketch>.ino.bin
+source:      <output_dir>/<fqbn_short>/<sketch>.ino.bin   (custom partitions; OTA/app image)
+source:      <output_dir>/<sketch>.ino.bin                (built-in partitions; OTA/app image)
 destination: <project_root>/<bin_name>
 ```
 
-Example — `bin_name` is `"0603.ino.feather_esp32.bin"`, `output_dir` is `"build"`:
+**CRITICAL — OTA uses the app `.bin`, not `.merged.bin`:** `*.merged.bin` is a full flash image (often the whole flash size, e.g. 4 MB) containing bootloader + partitions + app + data layout. It is for serial/full-flash workflows, not OTA. Exporting `*.merged.bin` to the fixed firmware filename will make OTA fail with "not enough space" even when the application fits the OTA slot.
+
+Never use `find build -name "*.merged.bin"` as the export fallback for `bin_name`. If the fixed filename is used by OTA/server symlinks, copying a merged image there creates a broken OTA artifact. For OTA-ready artifacts, the source file must end with `.ino.bin` and must NOT end with `.merged.bin`.
+
+**With custom partitions, arduino-cli writes both app and merged binaries under a subdirectory named after the FQBN short form** (e.g. `build/esp32.esp32.featheresp32/0503.ino.bin` and `0503.ino.merged.bin`). Always export the app binary for OTA and fixed firmware links. Use `find build -name "*.ino.bin"` to locate the app image if unsure.
+
+Example — `bin_name` is `"0503.ino.feather_esp32.bin"`, `output_dir` is `"build"`:
 ```bash
-cp build/0603.ino.bin 0603.ino.feather_esp32.bin   # Linux / macOS
-Copy-Item build\0603.ino.bin 0603.ino.feather_esp32.bin -Force  # Windows PowerShell
+cp build/esp32.esp32.featheresp32/0503.ino.bin 0503.ino.feather_esp32.bin
 ```
 
-This keeps the project root clean (build artifacts stay in `build/`) while
-maintaining a fixed filename that symlinks or update scripts can always reference.
+Robust export pattern:
+```bash
+APP_BIN=$(find build -path "*/<sketch>.ino.bin" ! -name "*.merged.bin" | head -n 1)
+test -n "$APP_BIN"
+cp "$APP_BIN" "<bin_name>"
+```
+
+After exporting, verify size against the OTA slot from `partitions.csv`:
+```bash
+stat -c %s 0503.ino.feather_esp32.bin
+# compare to app0/app1 Size, e.g. 0x140000 = 1310720 bytes
+```
+
+This keeps the project root clean (build artifacts stay in `build/`) while maintaining a fixed OTA-ready filename that symlinks or update scripts can always reference.
 
 In VS Code `tasks.json`, implement this as a separate `_esp32_export_bin` task
 and chain it via `"dependsOn"` + `"dependsOrder": "sequence"` on the main compile
@@ -486,20 +547,71 @@ later if the default scheme is insufficient.
 
 ---
 
-## Troubleshooting (Claude parses errors and acts)
+## Debugging approach — CRITICAL MINDSET
+
+When a compile error occurs:
+
+1. **Start from your own code, not external assumptions.** The most likely cause is a bug or missing declaration in your source files — not a tool bug, not a library issue, not a preprocessor glitch. Always assume the fault is in your code until proven otherwise.
+
+2. **Reproduce minimally.** Before blaming the toolchain, strip the project down to the smallest reproduction case. Create a clean directory with only the files needed to trigger the error. If the error disappears during reduction, the cause is in whatever you removed.
+
+3. **Trace data flow.** Read the generated intermediate files (`.ino.cpp`, `.ino.cpp.merged` in `~/.cache/arduino/sketches/<hash>/sketch/`). Compare the correct merged output against the corrupted compiler input. The diff will show you exactly where the problem starts.
+
+4. **One hypothesis at a time.** Change one variable between tests. "Maybe it's the comment block" → remove it and test. "Maybe it's CLAUDE.md" → remove it and test. Never change three things and retry.
+
+5. **If stuck, load the `superpowers` skill and follow its systematic-debugging reference** — four phases: root cause investigation, pattern analysis, hypothesis + testing, fix + verification. Do not skip to "it's a tool bug" without completing phase 1.
+
+**Common trap:** Arduino-cli does have bugs, but 9 times out of 10 the issue is in the sketch — a missing prototype, a rogue `#line` directive, or an unexpected file being scanned by the preprocessor. Verify your own code exhaustively before escalating to tool assumptions.
+
+## ErabliTEK project conventions
+
+Martin's ESP32 firmware projects follow this layout:
+
+```
+~/Desktop/Dropbox/ErabliTEK/Martin/Arduino/
+├── libraries/              ← ALL shared libraries (80+ libs: MB7389, AsyncIoTManager, etc.)
+│   ├── MB7389/
+│   ├── ErabliTEKAnalogReading/
+│   ├── AsyncIoTManager/
+│   ├── async-mqtt-client-develop/
+│   ├── AsyncTCP-3.4.8/
+│   └── ...
+├── 0503/                   ← NB300 liquid level sensor
+├── 0603/                   ← VAC300 vacuum pump controller
+└── ...
+```
+
+**Key rules:**
+- **Firmware lives in Dropbox, NEVER in the EraIoT Django repo**.
+  Do not search for .ino/.cpp files inside `~/EraIoT/`.
+- Libraries are shared from `../libraries` relative to each project.
+  `project.json` → `build.libraries_path: "../libraries"` — do NOT copy libs one-by-one to `~/Arduino/libraries/`.
+  Use `--libraries "../libraries"` in the arduino-cli command.
+- Custom `partitions.csv` is only for devices that need SPIFFS (e.g. VAC300).
+  **NB300 uses NVS (Preferences), not SPIFFS** — default partition scheme is correct.
+  Do NOT copy VAC300's partitions.csv to NB300 without explicit user confirmation.
+- All devices share the same libraries folder — no per-project copies.
 
 | Error substring | Likely cause | Action |
 |---|---|---|
-| `Invalid FQBN: ... invalid option 'X'` | `project.json` declares an option the board doesn't expose | Run `arduino-cli board details -b <fqbn>` to list real options. Then ASK the user: remove `X` from project.json, or omit from FQBN for this build only? Never silently drop. |
+| `stray '##' in program` / `##line` | Multi-file sketch missing `setup()`/`loop()` prototypes in main `.ino` | Add `void setup(); void loop();` to the main `.ino` prototypes section. Or migrate to `.h`/`.cpp` structure (see Compilation Logic → Step 0). |
+| `Invalid FQBN: ... invalid option 'X'` | `project.json` declares an option the board doesn't expose (common: `FlashMode` on `featheresp32`, `DebugLevel` on some boards) | Run `arduino-cli board details -b <fqbn>` to list real options. Then ASK the user: remove `X` from project.json, or omit from FQBN for this build only? Never silently drop. |
 | `Failed to connect to ESP32` | Device not in download mode | Instruct BOOT+EN sequence, retry after user confirms |
 | `Invalid head of packet` | Port busy or baudrate mismatch | Close monitors, lower upload_speed |
 | `No board selected` | Core missing or wrong FQBN | Verify `arduino-cli core list`, check FQBN |
 | `esp32:esp32 not installed` | Core not installed | Run `arduino-cli core install esp32:esp32@<version>` |
-| `Library <X>.h: No such file` | Missing lib | Suggest `arduino-cli lib install "<name>"` — confirmation required |
+| `Library <X>.h: No such file` | Missing lib | For ErabliTEK projects, check `~/Desktop/Dropbox/ErabliTEK/Martin/Arduino/libraries/` first — most deps are there. Copy needed libraries to `~/Arduino/libraries/` or use `--libraries` flag. |
+| `AsyncMqttClient.h: No such file` | Missing async-mqtt-client | `cp -r ~/Desktop/Dropbox/ErabliTEK/Martin/Arduino/libraries/async-mqtt-client-develop ~/Arduino/libraries/` |
+| `AsyncTCP.h: No such file` | Missing AsyncTCP | `cp -r ~/Desktop/Dropbox/ErabliTEK/Martin/Arduino/libraries/AsyncTCP-* ~/Arduino/libraries/AsyncTCP` |
+| `MB7389.h: No such file` / `ErabliTEKAnalogReading.h` | Missing ErabliTEK sensor libs | `cp -r ~/Desktop/Dropbox/ErabliTEK/Martin/Arduino/libraries/{MB7389,ErabliTEKAnalogReading} ~/Arduino/libraries/` |
 | `region \`iram0_0_seg' overflowed` | Code too large for RAM | Review code size, reduce features |
 | `region \`flash\`/\`app0\` overflowed` | Partition too small | Suggest `huge_app` scheme or custom partitions.csv |
+| `stray '##' in program` / `##line` in merged .cpp | Missing setup/loop prototypes in multi-file sketch | Add `void setup(); void loop();` to main .ino. See references/troubleshooting.md |
 | `Permission denied` on `/dev/ttyUSB*` | Linux dialout group missing | `sudo usermod -a -G dialout $USER` then re-login |
 | `xtensa-esp32-elf-gcc: not found` | Toolchain corrupt | Reinstall core with `arduino-cli core install esp32:esp32@<version> --force` |
+| `__DATE__` / `__TIME__` stale after recompile | Arduino CLI global cache (`~/.cache/arduino/sketches/`) reuses old `.o` files when source hasn't changed | `rm -rf ~/.cache/arduino/sketches/* build && arduino-cli compile ...` — see Step 4 |
+| `expected constructor ... before 'pour'` | `*/` inside a `/* */` comment prematurely closes the block | Reword: `pending/sendToCloud` instead of `pending*/sendToCloud()` |
+| `cp: cannot stat '.../tools/partitions/partitions.csv'` | `custom_build_properties` references partitions but no `partitions.csv` exists in project | Remove `custom_build_properties` from `project.json` — this field was likely copy-pasted from a SPIFFS project (e.g. VAC300). NB300 uses NVS/Preferences and does NOT need custom partitions. Check the project's storage type first. |
 
 See `references/troubleshooting.md` for the detailed version.
 
@@ -735,6 +847,7 @@ read `CHANGELOG.md` and summarize the most recent entries.
 - `references/fqbn-reference.md` — full list of ESP32 FQBN strings
 - `references/partition-schemes.md` — all built-in partition schemes with sizes
 - `references/troubleshooting.md` — detailed error diagnosis
+- `references/ino-preprocessor-hashhash.md` — `##line` preprocessor bug reproduction and fix
 - `references/installation.md` — arduino-cli installation per OS
 
 ---

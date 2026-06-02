@@ -2,6 +2,20 @@
 
 ## Upload failures
 
+### "stray '##' in program" — `##line` in compiled output
+
+**Error:**
+```
+error: stray '##' in program
+    1 | ##line 11 "path/to/005_setup.ino"
+```
+
+**Cause:** Multi-file Arduino sketch (split into 001_*.ino, 002_*.ino, etc.) where the main `.ino` file does NOT contain explicit prototypes for `setup()` and `loop()`. arduino-cli's preprocessor auto-generates these prototypes and the first `#line` directive it writes is corrupted to `##line`. Reproducible with arduino-cli 1.5.0 + esp32:esp32 core 3.3.8.
+
+**Fix:** Add `void setup(); void loop();` prototype declarations at the end of the main `.ino` file's prototypes section. Or migrate to `.h`/`.cpp` structure where `setup()`/`loop()` live directly in the `.ino`.
+
+**Diagnostic:** Check the generated `.cpp` in the Arduino build cache; if the first lines show `##line` instead of `#line`, this is the bug.
+
 ### "Failed to connect to ESP32: Timed out waiting for packet header"
 
 **Cause:** ESP32 is not in download/bootloader mode.
@@ -40,7 +54,22 @@ process.
 
 ### "esp32:esp32 not installed"
 
-```bash
+### "expected constructor, destructor, or type conversion before '...'" (C++ comment bug)
+
+**Error:**
+```
+sensors.cpp:8:50: error: expected constructor, destructor, or type conversion before 'pour'
+    8 |  * a changé. Pas de flags pending*/sendToCloud() pour les données capteur.
+```
+
+**Cause:** A `/* */` block comment containing the sequence `*/` (e.g. `pending*/sendToCloud()`).
+The C preprocessor treats the first `*/` as the end of the comment block, leaking the
+remaining text into source code.
+
+**Fix:** Replace `*/` inside block comments with `/` (e.g. `pending/sendToCloud`).
+Never use `*/` inside a `/* */` block, even as part of a word.
+
+### "region `iram0_0_seg' overflowed by N bytes"
 arduino-cli core install esp32:esp32
 # or with pinned version
 arduino-cli core install esp32:esp32@<version>
@@ -78,6 +107,30 @@ heavy use of `IRAM_ATTR` or interrupt handlers.
 2. Create a custom `partitions.csv` with a larger app slot
 3. Reduce firmware size: disable unused features, enable compiler optimizations
 4. Upgrade to a board with more flash (8MB or 16MB)
+
+### "xtensa-esp32-elf-gcc: not found"
+
+### `__DATE__`/`__TIME__` stale after recompile (`compileDate` unchanged)
+
+**Error:** After recompiling (especially after `rm -rf build`), the binary still contains
+the old compile date. `strings firmware.bin | grep "May 30"` shows yesterday's timestamp.
+
+**Cause:** `arduino-cli` caches compiled `.o` files globally under `~/.cache/arduino/sketches/`.
+If a source file containing `__DATE__` or `__TIME__` (e.g. `globals.cpp` with
+`const char compileDate[] = __DATE__ " " __TIME__`) hasn't changed between compiles,
+the cached `.o` is reused even after deleting the local `build/` output dir.
+
+**Fix:**
+```bash
+rm -rf ~/.cache/arduino/sketches/*    # global arduino-cli cache
+rm -rf <project>/build                 # local output dir
+arduino-cli compile ...
+```
+
+**Verify:**
+```bash
+strings <project>/<bin_name> | grep "$(date +%b) $(date +%d) $(date +%Y)"
+```
 
 ### "xtensa-esp32-elf-gcc: not found"
 

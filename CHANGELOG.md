@@ -54,6 +54,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- OTA export guidance now explicitly forbids copying `*.merged.bin` to `build.bin_name`;
+  fixed firmware filenames must receive the application `.ino.bin` so OTA does not fail
+  with `not enough space` from a full-flash image.
 - Misleading sketch-size percentages when `partitions.csv` was used alongside a
   generic `partition_scheme` value
 
